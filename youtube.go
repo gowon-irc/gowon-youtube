@@ -13,14 +13,26 @@ var (
 	ytURLRe = regexp.MustCompile(ytURLRegex)
 )
 
-func ytSearch(args string, client *youtube.Service) (string, error) {
+func ytGetResults(args string, client *youtube.Service) (*youtube.SearchListResponse, error) {
 	searchClient := youtube.NewSearchService(client)
 
 	search := searchClient.List([]string{"snippet"}).
 		Q(args).
 		MaxResults(1)
 
-	results, err := search.Do()
+	return search.Do()
+}
+
+func formatResult(res *youtube.SearchResult) string {
+	snippet := res.Snippet
+	channel := snippet.ChannelTitle
+	title := html.UnescapeString(snippet.Title)
+
+	return fmt.Sprintf("{red}YouTube video by %s:{clear} %s", channel, title)
+}
+
+func ytSearch(args string, client *youtube.Service) (string, error) {
+	results, err := ytGetResults(args, client)
 
 	if err != nil {
 		return "", err
@@ -30,14 +42,9 @@ func ytSearch(args string, client *youtube.Service) (string, error) {
 		return fmt.Sprintf("No results found for %s", args), nil
 	}
 
-	result := results.Items[0]
-	snippet := result.Snippet
-	channel := snippet.ChannelTitle
-	title := html.UnescapeString(snippet.Title)
+	res := results.Items[0]
 
-	out := fmt.Sprintf("{red}YouTube video by %s:{clear} %s", channel, title)
-
-	return out, nil
+	return fmt.Sprintf("%s - https://youtu.be/%s", formatResult(res), res.Id.VideoId), nil
 }
 
 func ytTitle(msg string, client *youtube.Service) (string, error) {
@@ -46,13 +53,17 @@ func ytTitle(msg string, client *youtube.Service) (string, error) {
 	outList := []string{}
 
 	for _, url := range urls {
-		res, err := ytSearch(url, client)
+		results, err := ytGetResults(url, client)
 
 		if err != nil {
 			return "", err
 		}
 
-		outList = append(outList, res)
+		if len(results.Items) == 0 {
+			continue
+		}
+
+		outList = append(outList, formatResult(results.Items[0]))
 	}
 
 	return strings.Join(outList, "\n"), nil
