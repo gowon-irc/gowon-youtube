@@ -1,0 +1,26 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: youtube
+  labels:
+    app.kubernetes.io/name: youtube
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: youtube
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: youtube
+    spec:
+      containers:
+        - name: youtube
+          image: youtube
+          env:
+            - name: GOWON_BROKER
+              value: mosquitto:1883
+            - name: GOWON_YOUTUBE_API_KEY
+              value: apikey
